@@ -1,15 +1,15 @@
 # What's My Breed
-## Description: 
+### Description: 
 This project implements convolutional neural networks and transfer learning to classify cat and dog breeds from images. The trained model will, hopefully, be deployed on a mobile app for real-time detection.
 
 
-## Core Functionality: 
+### Core Functionality: 
 - Real-time breed recognition via camera
 - Breed recognition from static image/video
 - Display animal (cat/dog) and breed name
 - Future: Display breed info + fun stats
 
-## Technical Details 
+### Technical Details 
 - CNN: MobileNetV2 → small and fast which makes it good for mobile applications. 
 - Datasets:
   - Stanford Dogs Dataset: 
@@ -22,3 +22,9 @@ This project implements convolutional neural networks and transfer learning to c
   - TensorFlow → Model training
   - TFLite → converting for mobile use
   - Kotlin → Mobile app development
+
+## Backend
+
+
+
+## Frontend
