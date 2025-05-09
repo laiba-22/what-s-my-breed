@@ -1,12 +1,12 @@
 package com.example.whatsmybreed
-
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
+import android.Manifest
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -23,14 +23,20 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import com.example.whatsmybreed.ui.theme.WhatsMyBreedTheme
 import java.io.File
 import java.io.InputStream
-import androidx.activity.compose.rememberLauncherForActivityResult
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
-class MainActivity : ComponentActivity() {
+
+class MainActivity : ComponentActivity()
+{
+
     private lateinit var classifier: TFLiteClassifier
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,9 +57,52 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun AppContent(classifier: TFLiteClassifier) {
         val context = LocalContext.current
+        val photoFile = remember { File(cacheDir, "camera_capture.jpg") }
+        val photoUri: Uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            photoFile
+        )
+
         var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
         var prediction by remember { mutableStateOf<String?>(null) }
 
+        // TO CLASSIFY IF IT'S A CAT OR DOG
+        val catBreeds = listOf(
+            "abyssinian", "bengal", "birman", "bombay",
+            "british_shorthair", "egyptian_mau", "maine_coon",
+            "persian", "ragdoll", "russian_blue", "siamese", "sphynx"
+        )
+
+        // Camera launcher initialized before permission launcher
+        val cameraLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.TakePicture()
+        ) { success ->
+            if (success) {
+                selectedImageUri = photoUri
+
+                val input = preprocessImage(photoFile)
+                val output = classifier.predict(input)
+                val topIndex = output.indices.maxByOrNull { output[it] } ?: -1
+                val label = classifier.getLabel(topIndex)
+                val type = if (catBreeds.contains(label.lowercase())) "Cat" else "Dog"
+                prediction = "I am a $type\nMy Breed: $label"
+            }
+        }
+
+        // Camera permission and launcher
+        val cameraPermission = Manifest.permission.CAMERA
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                cameraLauncher.launch(photoUri)
+            } else {
+                Toast.makeText(context, "Camera permission is required", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Image picker for uploading images
         val imagePicker = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
@@ -68,10 +117,12 @@ class MainActivity : ComponentActivity() {
                 val output = classifier.predict(input)
                 val topIndex = output.indices.maxByOrNull { output[it] } ?: -1
                 val label = classifier.getLabel(topIndex)
-                prediction = "My Breed: $label"
+                val type = if (catBreeds.contains(label.lowercase())) "Cat" else "Dog"
+                prediction = "I am a $type\nMy Breed: $label"
             }
         }
 
+        // UI layout
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -88,7 +139,7 @@ class MainActivity : ComponentActivity() {
             )
 
             Image(
-                painter = painterResource(id = R.drawable.my_logo), // Use your actual image name
+                painter = painterResource(id = R.drawable.my_logo),
                 contentDescription = "App Logo",
                 modifier = Modifier
                     .size(150.dp)
@@ -96,9 +147,12 @@ class MainActivity : ComponentActivity() {
                     .background(Color.LightGray)
             )
 
-
             Button(onClick = { imagePicker.launch("image/*") }) {
                 Text("Upload a Picture")
+            }
+
+            Button(onClick = { permissionLauncher.launch(cameraPermission) }) {
+                Text("Take a Picture")
             }
 
             selectedImageUri?.let { uri ->
@@ -113,7 +167,13 @@ class MainActivity : ComponentActivity() {
             }
 
             prediction?.let {
-                Text(it, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    text = it,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -140,5 +200,4 @@ class MainActivity : ComponentActivity() {
 
         return byteBuffer
     }
-
 }
